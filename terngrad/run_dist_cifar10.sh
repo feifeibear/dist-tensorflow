@@ -22,8 +22,6 @@ bazel-bin/inception/cifar10_distributed_train \
 --data_dir=${DATA_DIR} \
 --job_name='worker' \
 --task_id=1 \
---ps_hosts="$PS:2222" \
---worker_hosts="${WORKER1}:2224,${WORKER2}:2226" \
 --train_dir=/tmp/cifar10_distributed_train &
 
 export CUDA_VISIBLE_DEVICES=0
@@ -40,13 +38,9 @@ bazel-bin/inception/cifar10_distributed_train \
 --data_dir=${DATA_DIR} \
 --job_name='worker' \
 --task_id=0 \
---ps_hosts="$PS:2222" \
---worker_hosts="${WORKER1}:2224,${WORKER2}:2226" \
 --train_dir=/tmp/cifar10_distributed_train &
 
 export CUDA_VISIBLE_DEVICES=1
 bazel-bin/inception/cifar10_distributed_train \
 --job_name='ps' \
 --task_id=0 \
---ps_hosts="$PS:2222" \
---worker_hosts="${WORKER1}:2224,${WORKER2}:2226" &

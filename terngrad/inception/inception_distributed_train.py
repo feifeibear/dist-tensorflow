@@ -33,17 +33,6 @@ from inception.slim import slim
 import inception.bingrad_common as bingrad_common
 
 FLAGS = tf.app.flags.FLAGS
-
-tf.app.flags.DEFINE_string('job_name', '', 'One of "ps", "worker"')
-tf.app.flags.DEFINE_string('ps_hosts', '',
-                           """Comma-separated list of hostname:port for the """
-                           """parameter server jobs. e.g. """
-                           """'machine1:2222,machine2:1111,machine2:2222'""")
-tf.app.flags.DEFINE_string('worker_hosts', '',
-                           """Comma-separated list of hostname:port for the """
-                           """worker jobs. e.g. """
-                           """'machine1:2222,machine2:1111,machine2:2222'""")
-
 tf.app.flags.DEFINE_string('train_dir', '/tmp/dataset_distributed_train',
                            """Directory where to write event logs """
                            """and checkpoint.""")
@@ -53,8 +42,6 @@ tf.app.flags.DEFINE_boolean('log_device_placement', False,
 
 # Task ID is used to select the chief and also to access the local_step for
 # each replica to check staleness of the gradients in SyncReplicasOptimizer.
-tf.app.flags.DEFINE_integer(
-    'task_id', 0, 'Task ID of the worker/replica running the training.')
 
 # More details can be found in the SyncReplicasOptimizer class:
 # tensorflow/python/training/sync_replicas_optimizer.py
@@ -109,12 +96,17 @@ RMSPROP_DECAY = 0.9                # Decay term for RMSProp.
 RMSPROP_EPSILON = 1.0              # Epsilon term for RMSProp.
 
 
-def train(target, dataset, cluster_spec):
+def train(target, dataset, cluster_spec, my_task_id):
   """Train Inception on a dataset for a number of steps."""
   # Number of workers and parameter servers are inferred from the workers and ps
   # hosts string.
-  num_workers = len(cluster_spec.as_dict()['worker'])
-  num_parameter_servers = len(cluster_spec.as_dict()['ps'])
+  #fjr
+  #num_workers = len(cluster_spec.as_dict()['worker'])
+  #num_parameter_servers = len(cluster_spec.as_dict()['ps'])
+  num_workers = len(cluster_spec['worker'])
+  num_parameter_servers = len(cluster_spec['ps'])
+  tf.logging.info('debug %d ' % num_workers)
+  tf.logging.info( 'debug ps number %d' % num_parameter_servers)
   # If no value is given, num_replicas_to_aggregate defaults to be the number of
   # workers.
   if FLAGS.num_replicas_to_aggregate == -1:
@@ -129,10 +121,10 @@ def train(target, dataset, cluster_spec):
 
   # Choose worker 0 as the chief. Note that any worker could be the chief
   # but there should be only one chief.
-  is_chief = (FLAGS.task_id == 0)
+  is_chief = (my_task_id == 0)
 
   # Ops are assigned to worker by default.
-  with tf.device('/job:worker/task:%d' % FLAGS.task_id):
+  with tf.device('/job:worker/task:%d' % my_task_id):
     # Variables and its related init/assign ops are assigned to ps.
     with slim.scopes.arg_scope(
         [slim.variables.variable, slim.variables.global_step],
@@ -334,7 +326,7 @@ def train(target, dataset, cluster_spec):
             format_str = ('Worker %d: %s: step %d, loss = %.2f'
                           '(%.1f examples/sec; %.3f  sec/batch)')
             tf.logging.info(format_str %
-                            (FLAGS.task_id, datetime.now(), step, loss_value,
+                            (my_task_id, datetime.now(), step, loss_value,
                              examples_per_sec, duration))
 
           # Determine if the summary_op should be run on the chief worker.
